@@ -18,13 +18,13 @@ Current packages:
 ## Use from another flake
 
 ```nix
-inputs.personal-nixpkgs.url = "github:otahontas/nixpkgs";
+inputs.otahontas-nixpkgs.url = "github:otahontas/nixpkgs";
 
 # Packages
-personal-nixpkgs.packages.${system}.config-file-validator
-personal-nixpkgs.packages.${system}.neonctl
-personal-nixpkgs.packages.${system}.resend-cli
+otahontas-nixpkgs.packages.${system}.config-file-validator
+otahontas-nixpkgs.packages.${system}.neonctl
+otahontas-nixpkgs.packages.${system}.resend-cli
 
 # Overlay
-nixpkgs.overlays = [ personal-nixpkgs.overlays.default ];
+nixpkgs.overlays = [ otahontas-nixpkgs.overlays.default ];
 ```
