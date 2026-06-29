@@ -1,6 +1,6 @@
-# Flakes
+# nixpkgs
 
-Nix package tap for small tools.
+Personal Nix package collection for small tools.
 
 ## Packages
 
@@ -18,13 +18,13 @@ Current packages:
 ## Use from another flake
 
 ```nix
-inputs.package-tap.url = "github:otahontas/flakes";
+inputs.personal-nixpkgs.url = "github:otahontas/nixpkgs";
 
 # Packages
-package-tap.packages.${system}.config-file-validator
-package-tap.packages.${system}.neonctl
-package-tap.packages.${system}.resend-cli
+personal-nixpkgs.packages.${system}.config-file-validator
+personal-nixpkgs.packages.${system}.neonctl
+personal-nixpkgs.packages.${system}.resend-cli
 
 # Overlay
-nixpkgs.overlays = [ package-tap.overlays.default ];
+nixpkgs.overlays = [ personal-nixpkgs.overlays.default ];
 ```

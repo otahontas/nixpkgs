@@ -1,5 +1,5 @@
 {
-  description = "Nix flake package tap";
+  description = "Personal Nix package collection";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
