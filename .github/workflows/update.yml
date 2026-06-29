@@ -6,16 +6,36 @@ on:
   workflow_dispatch:
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Discover updateable packages
+        id: packages
+        run: |
+          set -euo pipefail
+          packages=$(
+            for script in packages/*/update.sh; do
+              [ -f "$script" ] || continue
+              package_dir=$(dirname "$script")
+              [ -f "$package_dir/package.nix" ] || continue
+              package_name=$(basename "$package_dir")
+              case "$package_name" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $package_name" >&2; exit 1;; esac
+              printf '%s\n' "$package_name"
+            done | sort | jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+
   update:
+    needs: discover
+    if: needs.discover.outputs.packages != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - pi-mcp-adapter
-          - pi-subagents
-          - pi-web-access
-          - pi-ralph-loop
+        package: ${{ fromJson(needs.discover.outputs.packages) }}
     permissions:
       contents: write
       pull-requests: write
@@ -33,21 +53,105 @@ jobs:
       - uses: cachix/install-nix-action@v31
 
       - name: Run update
-        run: nix develop -c bash packages/${{ matrix.package }}/update.sh
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $PACKAGE" >&2; exit 1;; esac
+          nix develop -c bash "packages/$PACKAGE/update.sh"
 
       - name: Check for changes
         id: changed
+        env:
+          PACKAGE: ${{ matrix.package }}
         run: |
-          if git diff --quiet -- packages/${{ matrix.package }}/ && git diff --cached --quiet -- packages/${{ matrix.package }}/; then
+          set -euo pipefail
+          case "$PACKAGE" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $PACKAGE" >&2; exit 1;; esac
+          if [ -z "$(git status --porcelain -- "packages/$PACKAGE/")" ]; then
             echo "updated=false" >> "$GITHUB_OUTPUT"
           else
             echo "updated=true" >> "$GITHUB_OUTPUT"
-            jq -r .version packages/${{ matrix.package }}/hashes.json > version.txt
+            if [ -f "packages/$PACKAGE/hashes.json" ]; then
+              jq -er .version "packages/$PACKAGE/hashes.json" > version.txt
+            else
+              nix eval --raw ".#$PACKAGE.version" > version.txt
+            fi
           fi
 
       - name: Build changed package
         if: steps.changed.outputs.updated == 'true'
-        run: nix build .#${{ matrix.package }} --no-link
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $PACKAGE" >&2; exit 1;; esac
+          nix build ".#$PACKAGE" --no-link
+
+      - name: Create PR
+        if: steps.changed.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $PACKAGE" >&2; exit 1;; esac
+          BRANCH="update/$PACKAGE"
+          VERSION=$(cat version.txt)
+          TITLE="$PACKAGE $VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add "packages/$PACKAGE/"
+          git commit -m "$TITLE"
+          git push --force origin "HEAD:$BRANCH"
+
+          gh label create automated --color 0e8a16 --force 2>/dev/null || true
+
+          if PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' | grep .); then
+            gh pr edit "$PR" --title "$TITLE" --body "Automated update of $PACKAGE to $VERSION."
+          else
+            gh pr create \
+              --title "$TITLE" \
+              --body "Automated update of $PACKAGE to $VERSION." \
+              --base main --head "$BRANCH" \
+              --label automated
+          fi
+
+  update-nixpkgs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Update nixpkgs lock
+        run: nix flake update nixpkgs
+
+      - name: Check for changes
+        id: changed
+        run: |
+          if git diff --quiet -- flake.lock && git diff --cached --quiet -- flake.lock; then
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            jq -r .nodes.nixpkgs.locked.rev flake.lock > nixpkgs-rev.txt
+          fi
+
+      - name: Check flake
+        if: steps.changed.outputs.updated == 'true'
+        run: nix flake check
 
       - name: Create PR
         if: steps.changed.outputs.updated == 'true'
@@ -55,25 +159,26 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          BRANCH="update/${{ matrix.package }}"
-          VERSION=$(cat version.txt)
-          TITLE="${{ matrix.package }} $VERSION"
+          BRANCH="update/nixpkgs"
+          REV=$(cat nixpkgs-rev.txt)
+          SHORT_REV=${REV:0:12}
+          TITLE="nixpkgs $SHORT_REV"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
-          git add packages/${{ matrix.package }}/
+          git add flake.lock
           git commit -m "$TITLE"
           git push --force origin "HEAD:$BRANCH"
 
           gh label create automated --color 0e8a16 --force 2>/dev/null || true
 
           if PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' | grep .); then
-            gh pr edit "$PR" --title "$TITLE" --body "Automated update of ${{ matrix.package }} to $VERSION."
+            gh pr edit "$PR" --title "$TITLE" --body "Automated nixpkgs lock update to $REV."
           else
             gh pr create \
               --title "$TITLE" \
-              --body "Automated update of ${{ matrix.package }} to $VERSION." \
+              --body "Automated nixpkgs lock update to $REV." \
               --base main --head "$BRANCH" \
               --label automated
           fi

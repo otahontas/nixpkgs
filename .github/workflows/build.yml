@@ -9,18 +9,41 @@ on:
       - .github/workflows/**
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Discover packages
+        id: packages
+        run: |
+          set -euo pipefail
+          packages=$(
+            for package in packages/*/package.nix; do
+              [ -e "$package" ] || continue
+              package_name=$(basename "$(dirname "$package")")
+              case "$package_name" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $package_name" >&2; exit 1;; esac
+              printf '%s\n' "$package_name"
+            done | sort | jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: discover
+    if: needs.discover.outputs.packages != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - pi-mcp-adapter
-          - pi-subagents
-          - pi-web-access
-          - pi-ralph-loop
+        package: ${{ fromJson(needs.discover.outputs.packages) }}
     steps:
       - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
       - name: Build package
-        run: nix build .#${{ matrix.package }} --no-link
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE" in (*[!A-Za-z0-9_-]*|'') echo "invalid package: $PACKAGE" >&2; exit 1;; esac
+          nix build ".#$PACKAGE" --no-link

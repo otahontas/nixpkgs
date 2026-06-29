@@ -1,17 +1,36 @@
-# Pi flakes
+# Flakes
 
-Nix packages for Pi extensions.
+Nix package tap for small tools and Pi extensions.
+
+## Packages
+
+Each `packages/<name>/package.nix` file becomes:
+
+- `packages.${system}.<name>`
+- `pkgs.<name>` when you apply `overlays.default`
+
+Current packages:
+
+- `config-file-validator`
+- `pi-mcp-adapter`
+- `pi-ralph-loop`
+- `pi-subagents`
+- `pi-web-access`
 
 ## Use from another flake
 
 ```nix
-inputs.pi-flakes.url = "github:otahontas/flakes";
+inputs.package-tap.url = "github:otahontas/flakes";
 
-# then use:
-pi-flakes.packages.${system}.pi-mcp-adapter
-pi-flakes.packages.${system}.pi-web-access
-pi-flakes.packages.${system}.pi-subagents
-pi-flakes.packages.${system}.pi-ralph-loop
+# Packages
+package-tap.packages.${system}.config-file-validator
+package-tap.packages.${system}.pi-mcp-adapter
+package-tap.packages.${system}.pi-web-access
+package-tap.packages.${system}.pi-subagents
+package-tap.packages.${system}.pi-ralph-loop
+
+# Overlay
+nixpkgs.overlays = [ package-tap.overlays.default ];
 ```
 
-Each package builds to a Pi package root. Home Manager can symlink the derivation output directly into `~/.pi/agent/extensions/<package>`.
+Pi extension packages build to Pi package roots. Home Manager can symlink each output into `~/.pi/agent/extensions/<package>`.
