@@ -11,6 +11,7 @@ Each `packages/<name>/package.nix` file becomes:
 
 Current packages:
 
+- `absurdctl`
 - `config-file-validator`
 - `neonctl` (`neonctl`, `neon`)
 - `resend-cli` (`resend`)
@@ -21,6 +22,7 @@ Current packages:
 inputs.otahontas-nixpkgs.url = "github:otahontas/nixpkgs";
 
 # Packages
+otahontas-nixpkgs.packages.${system}.absurdctl
 otahontas-nixpkgs.packages.${system}.config-file-validator
 otahontas-nixpkgs.packages.${system}.neonctl
 otahontas-nixpkgs.packages.${system}.resend-cli

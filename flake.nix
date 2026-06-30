@@ -34,8 +34,10 @@
         in {
           default = pkgs.mkShell {
             packages = with pkgs; [
+              curl
               git
               jq
+              nix
               nodejs
               prefetch-npm-deps
               trash-cli
