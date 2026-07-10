@@ -13,7 +13,7 @@ buildNpmPackage {
   version = data.version;
 
   src = fetchurl {
-    url = "https://registry.npmjs.org/neonctl/-/neonctl-${data.version}.tgz";
+    url = "https://registry.npmjs.org/neon/-/neon-${data.version}.tgz";
     hash = data.sourceHash;
   };
 
@@ -54,8 +54,8 @@ buildNpmPackage {
   meta = with lib; {
     description = "Neon database CLI";
     homepage = "https://github.com/neondatabase/neon-pkgs";
-    changelog = "https://github.com/neondatabase/neon-pkgs/releases?q=neonctl";
-    downloadPage = "https://www.npmjs.com/package/neonctl";
+    changelog = "https://github.com/neondatabase/neon-pkgs/releases?q=neon";
+    downloadPage = "https://www.npmjs.com/package/neon";
     license = licenses.asl20;
     mainProgram = "neonctl";
     platforms = platforms.all;
