@@ -29,41 +29,41 @@ fi
 
 echo "Updating config-file-validator from $current_version to $latest_version"
 
-source_nix_hash=$(nix-prefetch-url --type sha256 "https://github.com/Boeing/config-file-validator/archive/refs/tags/v${latest_version}.tar.gz")
+source_nix_hash=$(nix-prefetch-url --type sha256 --unpack "https://github.com/Boeing/config-file-validator/archive/refs/tags/v${latest_version}.tar.gz")
 source_hash=$(nix hash convert --hash-algo sha256 --to sri "$source_nix_hash")
 
 tmp_dir=$(mktemp -d)
-trap 'if [ -n "${tmp_dir:-}" ] && [ -e "$tmp_dir" ]; then trash -rf "$tmp_dir" || true; fi' EXIT
-
-cat > "$tmp_dir/build.nix" <<'EOF'
-let
-  flake = builtins.getFlake (toString "REPO_DIR");
-in
-{
-  configFileValidator =
-    (flake.packages.${builtins.currentSystem}.config-file-validator).overrideAttrs (_: {
-      vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    });
+cp package.nix "$tmp_dir/package.nix"
+updated=false
+cleanup_tmp() {
+  if [ "$updated" != true ]; then
+    cp "$tmp_dir/package.nix" package.nix
+  fi
+  trash "$tmp_dir" || true
 }
-EOF
-perl -pi -e "s|REPO_DIR|$repo_dir|g" "$tmp_dir/build.nix"
+trap cleanup_tmp EXIT
 
-nix build --impure -f "$tmp_dir/build.nix" configFileValidator --out-link "$tmp_dir/result" > "$tmp_dir/build.log" 2>&1 || true
+awk -v version="$latest_version" -v source_hash="$source_hash" '
+  /^  version = / { sub(/^  version = "[^"]+";/, "  version = \"" version "\";") }
+  /^    hash = / { sub(/^    hash = "[^"]+";/, "    hash = \"" source_hash "\";") }
+  /^  vendorHash = / { sub(/^  vendorHash = "[^"]+";/, "  vendorHash = \"sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\";") }
+  { print }
+' package.nix > "$tmp_dir/package.nix.new"
+mv "$tmp_dir/package.nix.new" package.nix
 
+nix build "$repo_dir#config-file-validator" --no-link > "$tmp_dir/build.log" 2>&1 || true
 vendor_hash=$(awk '/got:/ { print $2; exit }' "$tmp_dir/build.log")
 if [ -z "$vendor_hash" ]; then
   echo "could not parse vendorHash for config-file-validator $latest_version" >&2
-  echo "see $tmp_dir/build.log" >&2
   cat "$tmp_dir/build.log" >&2
   exit 1
 fi
 
-awk -v version="$latest_version" -v source_hash="$source_hash" -v vendor_hash="$vendor_hash" '
-  /^  version = / { sub(/^  version = "[^"]+";/, "  version = \"" version "\";") }
-  /^  hash = / { sub(/^  hash = "[^"]+";/, "  hash = \"" source_hash "\";") }
+awk -v vendor_hash="$vendor_hash" '
   /^  vendorHash = / { sub(/^  vendorHash = "[^"]+";/, "  vendorHash = \"" vendor_hash "\";") }
   { print }
 ' package.nix > "$tmp_dir/package.nix.new"
 mv "$tmp_dir/package.nix.new" package.nix
+updated=true
 
 echo "updated config-file-validator to $latest_version"

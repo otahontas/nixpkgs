@@ -3,77 +3,54 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-repo="1st1/lat.md"
+package_name="lat.md"
 hashes_file="hashes.json"
+lock_file="package-lock.json"
 
-latest_tag=$(curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name // empty')
 current_version=$(jq -r '.version' "$hashes_file")
-
-if [ -z "$latest_tag" ] || [ "$latest_tag" = "null" ]; then
-  echo "could not read latest release tag for ${repo}" >&2
-  exit 1
-fi
-
-latest_version="${latest_tag#v}"
+latest_version=$(npm view "$package_name" version)
 
 if [ "$current_version" = "$latest_version" ]; then
-  echo "lat-md already at ${current_version}"
+  echo "lat-md already at $current_version"
   exit 0
 fi
 
-source_url="https://github.com/${repo}/archive/refs/tags/${latest_tag}.tar.gz"
-source_nix_hash=$(nix-prefetch-url --type sha256 "$source_url")
+echo "Updating lat-md from $current_version to $latest_version"
+
+source_nix_hash=$(nix-prefetch-url --type sha256 "https://registry.npmjs.org/${package_name}/-/${package_name}-${latest_version}.tgz")
 source_hash=$(nix hash convert --hash-algo sha256 --to sri "$source_nix_hash")
 
 tmp_dir=$(mktemp -d)
-tmp_file=$(mktemp "${PWD}/hashes.json.tmp.XXXXXX")
-
 cleanup_tmp() {
-  if [ -n "${tmp_file:-}" ] && [ -e "$tmp_file" ]; then
-    trash "$tmp_file" || true
-  fi
-
   if [ -n "${tmp_dir:-}" ] && [ -e "$tmp_dir" ]; then
-    trash -rf "$tmp_dir" || true
+    trash "$tmp_dir" || true
   fi
 }
-
 trap cleanup_tmp EXIT
 
-curl -fsSL "$source_url" -o "$tmp_dir/source.tar.gz"
+(
+  cd "$tmp_dir"
+  pack_file="$(npm pack "${package_name}@${latest_version}" | tail -n1)"
+  tar -xzf "$pack_file"
+  cd package
+  npm install --package-lock-only --ignore-scripts --omit=dev >/tmp/lat-md-install.log 2>&1
+)
 
-tar -xzf "$tmp_dir/source.tar.gz" -C "$tmp_dir"
-source_dir_name=$(tar -tf "$tmp_dir/source.tar.gz" | head -n 1 | cut -d/ -f1)
-source_dir="$tmp_dir/$source_dir_name"
-lockfile="$source_dir/pnpm-lock.yaml"
-
-current_pnpm_deps_hash=$(jq -r '.pnpmDepsHash' "$hashes_file")
-pnpm_deps_hash="$current_pnpm_deps_hash"
-
-if [ -f "$lockfile" ] && command -v prefetch-npm-deps >/dev/null 2>&1; then
-  if computed=$(prefetch-npm-deps "$lockfile" 2>/tmp/prefetch-npm-deps.log); then
-    if [ -n "$computed" ]; then
-      pnpm_deps_hash="$computed"
-    fi
-  else
-    echo "warning: prefetch-npm-deps failed, keeping existing pnpmDepsHash" >&2
-  fi
-elif [ ! -f "$lockfile" ]; then
-  echo "warning: lockfile not found in ${source_dir_name}, keeping existing pnpmDepsHash" >&2
+if command -v prefetch-npm-deps >/dev/null 2>&1; then
+  npm_deps_hash=$(prefetch-npm-deps "$tmp_dir/package/package-lock.json")
+else
+  npm_deps_hash=$(nix run github:NixOS/nixpkgs#prefetch-npm-deps -- "$tmp_dir/package/package-lock.json")
 fi
 
+cp "$tmp_dir/package/package-lock.json" "$lock_file"
 
-jq -n \
-  --arg version "$latest_version" \
-  --arg sourceHash "$source_hash" \
-  --arg npmDepsHash "$pnpm_deps_hash" \
-  '{
-    version: $version,
-    sourceHash: $sourceHash,
-    pnpmDepsHash: $npmDepsHash
-  }' \
-  > "$tmp_file"
+cat > "$hashes_file.tmp" <<EOF
+{
+  "version": "$latest_version",
+  "sourceHash": "$source_hash",
+  "npmDepsHash": "$npm_deps_hash"
+}
+EOF
+mv "$hashes_file.tmp" "$hashes_file"
 
-mv "$tmp_file" "$hashes_file"
-
-echo "updated lat-md to ${latest_version}"
+echo "updated lat-md to $latest_version"

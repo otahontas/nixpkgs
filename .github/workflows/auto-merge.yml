@@ -16,7 +16,7 @@ jobs:
       group: 'auto-merge:${{ github.event.workflow_run.head_branch }}'
       cancel-in-progress: true
     steps:
-      - name: Enable auto-merge
+      - name: Merge update
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -46,4 +46,4 @@ jobs:
             exit 0
           fi
 
-          gh pr merge "$PR" --repo "$REPO" --auto --merge
+          gh pr merge "$PR" --repo "$REPO" --merge --match-head-commit "$HEAD_SHA"

@@ -23,7 +23,7 @@ source_hash=$(nix hash convert --hash-algo sha256 --to sri "$source_nix_hash")
 tmp_dir=$(mktemp -d)
 cleanup_tmp() {
   if [ -n "${tmp_dir:-}" ] && [ -e "$tmp_dir" ]; then
-    trash -rf "$tmp_dir" || true
+    trash "$tmp_dir" || true
   fi
 }
 trap cleanup_tmp EXIT
@@ -34,7 +34,6 @@ trap cleanup_tmp EXIT
   tar -xzf "$pack_file"
   cd package
   npm install --package-lock-only --ignore-scripts --omit=dev >/tmp/neonctl-install.log 2>&1
-  cp package-lock.json "$PWD/../$lock_file"
 )
 
 if command -v prefetch-npm-deps >/dev/null 2>&1; then
@@ -42,6 +41,8 @@ if command -v prefetch-npm-deps >/dev/null 2>&1; then
 else
   npm_deps_hash=$(nix run github:NixOS/nixpkgs#prefetch-npm-deps -- "$tmp_dir/package/package-lock.json")
 fi
+
+cp "$tmp_dir/package/package-lock.json" "$lock_file"
 
 cat > "$hashes_file.tmp" <<EOF
 {

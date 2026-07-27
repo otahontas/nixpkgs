@@ -1,57 +1,46 @@
 {
   lib,
-  stdenvNoCC,
-  fetchFromGitHub,
+  buildNpmPackage,
+  fetchurl,
   nodejs,
-  makeWrapper,
-  pnpm_10,
-  pnpmConfigHook,
-  fetchPnpmDeps,
 }:
 
 let
   data = lib.importJSON ./hashes.json;
-  version = data.version;
 in
-stdenvNoCC.mkDerivation (finalAttrs: {
+buildNpmPackage {
   pname = "lat-md";
-  inherit version;
+  version = data.version;
 
-  src = fetchFromGitHub {
-    owner = "1st1";
-    repo = "lat.md";
-    tag = "v${version}";
+  src = fetchurl {
+    url = "https://registry.npmjs.org/lat.md/-/lat.md-${data.version}.tgz";
     hash = data.sourceHash;
   };
 
-  nativeBuildInputs = [
-    nodejs
-    pnpm_10
-    pnpmConfigHook
-    makeWrapper
-  ];
+  inherit nodejs;
+  npmDepsHash = data.npmDepsHash;
+  npmFlags = [ "--ignore-scripts" ];
+  npmInstallFlags = [ "--omit=dev" ];
+  dontNpmBuild = true;
 
-  pnpmDeps = fetchPnpmDeps {
-    inherit (finalAttrs) pname version src;
-    pnpm = pnpm_10;
-    fetcherVersion = 3;
-    hash = data.pnpmDepsHash;
-  };
-
-  buildPhase = ''
-    runHook preBuild
-    pnpm build
-    pnpm prune --prod
-    runHook postBuild
-  '';
-
-  installPhase = ''
-    runHook preInstall
-    mkdir -p "$out/lib/node_modules/lat.md" "$out/bin"
-    cp -R dist templates package.json node_modules "$out/lib/node_modules/lat.md/"
-    makeWrapper ${nodejs}/bin/node "$out/bin/lat" \
-      --add-flags "$out/lib/node_modules/lat.md/dist/src/cli/index.js"
-    runHook postInstall
+  postPatch = ''
+    awk '
+      BEGIN { skip = 0; depth = 0; prev = "" }
+      /"devDependencies"[[:space:]]*:[[:space:]]*\{/ { skip = 1; depth = 1; next }
+      skip {
+        depth += gsub(/\{/, "{") - gsub(/\}/, "}")
+        if (depth <= 0) skip = 0
+        next
+      }
+      {
+        if ($0 ~ /^}/ && prev ~ /,$/) sub(/,$/, "", prev)
+        if (prev != "") print prev
+        prev = $0
+      }
+      END { if (prev != "") print prev }
+    ' package.json > package.json.tmp
+    mv package.json.tmp package.json
+    cp ${./package-lock.json} package-lock.json
   '';
 
   meta = with lib; {
@@ -61,4 +50,4 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     mainProgram = "lat";
     platforms = platforms.unix;
   };
-})
+}
