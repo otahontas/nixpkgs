@@ -9,7 +9,7 @@ let
   data = lib.importJSON ./hashes.json;
 in
 buildNpmPackage {
-  pname = "neonctl";
+  pname = "neon";
   version = data.version;
 
   src = fetchurl {
@@ -45,9 +45,8 @@ buildNpmPackage {
 
   doInstallCheck = true;
   installCheckPhase = ''
-    test -x "$out/bin/neonctl"
     test -x "$out/bin/neon"
-    "$out/bin/neonctl" --version | grep -F "${data.version}"
+    test ! -e "$out/bin/neonctl"
     "$out/bin/neon" --version | grep -F "${data.version}"
   '';
 
@@ -57,7 +56,7 @@ buildNpmPackage {
     changelog = "https://github.com/neondatabase/neon-pkgs/releases?q=neon";
     downloadPage = "https://www.npmjs.com/package/neon";
     license = licenses.asl20;
-    mainProgram = "neonctl";
+    mainProgram = "neon";
     platforms = platforms.all;
   };
 }

@@ -11,11 +11,11 @@ current_version=$(jq -r '.version' "$hashes_file")
 latest_version=$(npm view "$package_name" version)
 
 if [ "$current_version" = "$latest_version" ]; then
-  echo "neonctl already at $current_version"
+  echo "neon already at $current_version"
   exit 0
 fi
 
-echo "Updating neonctl from $current_version to $latest_version"
+echo "Updating neon from $current_version to $latest_version"
 
 source_nix_hash=$(nix-prefetch-url --type sha256 "https://registry.npmjs.org/${package_name}/-/${package_name}-${latest_version}.tgz")
 source_hash=$(nix hash convert --hash-algo sha256 --to sri "$source_nix_hash")
@@ -33,7 +33,8 @@ trap cleanup_tmp EXIT
   pack_file="$(npm pack "${package_name}@${latest_version}" | tail -n1)"
   tar -xzf "$pack_file"
   cd package
-  npm install --package-lock-only --ignore-scripts --omit=dev >/tmp/neonctl-install.log 2>&1
+  npm pkg delete devDependencies
+  npm install --package-lock-only --ignore-scripts --omit=dev >/tmp/neon-install.log 2>&1
 )
 
 if command -v prefetch-npm-deps >/dev/null 2>&1; then
@@ -53,4 +54,4 @@ cat > "$hashes_file.tmp" <<EOF
 EOF
 mv "$hashes_file.tmp" "$hashes_file"
 
-echo "updated neonctl to $latest_version"
+echo "updated neon to $latest_version"

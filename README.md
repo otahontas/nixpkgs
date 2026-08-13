@@ -14,7 +14,7 @@ Current packages:
 - `absurdctl`
 - `config-file-validator`
 - `lat-md`
-- `neonctl` (`neonctl`, `neon`)
+- `neon`
 - `plannotator`
 - `resend-cli` (`resend`)
 
@@ -27,7 +27,7 @@ inputs.otahontas-nixpkgs.url = "github:otahontas/nixpkgs";
 otahontas-nixpkgs.packages.${system}.absurdctl
 otahontas-nixpkgs.packages.${system}.config-file-validator
 otahontas-nixpkgs.packages.${system}.lat-md
-otahontas-nixpkgs.packages.${system}.neonctl
+otahontas-nixpkgs.packages.${system}.neon
 otahontas-nixpkgs.packages.${system}.plannotator
 otahontas-nixpkgs.packages.${system}.resend-cli
 
