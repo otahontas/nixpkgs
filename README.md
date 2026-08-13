@@ -12,7 +12,9 @@ Each `packages/<name>/package.nix` file becomes:
 Current packages:
 
 - `absurdctl`
+- `auth0-deploy-cli` (`a0deploy`)
 - `config-file-validator`
+- `effect-tsgo`
 - `lat-md`
 - `neon`
 - `plannotator`
@@ -25,7 +27,9 @@ inputs.otahontas-nixpkgs.url = "github:otahontas/nixpkgs";
 
 # Packages
 otahontas-nixpkgs.packages.${system}.absurdctl
+otahontas-nixpkgs.packages.${system}.auth0-deploy-cli
 otahontas-nixpkgs.packages.${system}.config-file-validator
+otahontas-nixpkgs.packages.${system}.effect-tsgo
 otahontas-nixpkgs.packages.${system}.lat-md
 otahontas-nixpkgs.packages.${system}.neon
 otahontas-nixpkgs.packages.${system}.plannotator
