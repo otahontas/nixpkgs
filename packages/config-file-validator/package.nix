@@ -1,38 +1,35 @@
 {
   lib,
-  buildGoModule,
-  fetchFromGitHub,
-  git,
+  fetchurl,
+  stdenvNoCC,
 }:
 
-buildGoModule rec {
+let
+  data = lib.importJSON ./hashes.json;
+  version = data.version;
+  platform = {
+    aarch64-darwin = "darwin-arm64";
+    aarch64-linux = "linux-arm64";
+    x86_64-linux = "linux-amd64";
+  }.${stdenvNoCC.hostPlatform.system};
+in
+stdenvNoCC.mkDerivation {
   pname = "config-file-validator";
-  version = "3.0.0";
+  inherit version;
 
-  src = fetchFromGitHub {
-    owner = "Boeing";
-    repo = "config-file-validator";
-    rev = "v${version}";
-    hash = "sha256-v/6KbReW2qEd6Dkno7VCyegOBpCAYvC5GWuBMvZe12w=";
+  src = fetchurl {
+    url = "https://github.com/Boeing/config-file-validator/releases/download/v${version}/cfv-${version}-${platform}.tar.gz";
+    hash = data.hashes.${platform};
   };
 
-  vendorHash = "sha256-uLS28SwapMqHmuWcEzUAtJGlOr4BvA5LQnn/L81SWus=";
+  sourceRoot = ".";
+  dontConfigure = true;
+  dontBuild = true;
+  dontStrip = true;
+  dontPatchELF = true;
 
-  subPackages = [ "cmd/cfv" ];
-
-  ldflags = [
-    "-s"
-    "-w"
-    "-X github.com/Boeing/config-file-validator/v3.version=v${version}"
-  ];
-
-  nativeCheckInputs = [ git ];
-
-  postPatch = ''
-    substituteInPlace cmd/cfv/testdata/gitignore.txtar \
-      --replace-fail "! stdout 'build'" "! stdout 'build.output.json'"
-    substituteInPlace cmd/cfv/testdata/ignore_file.txtar \
-      --replace-fail "! stdout 'build'" "! stdout 'build.output.json'"
+  installPhase = ''
+    install -Dm755 cfv "$out/bin/cfv"
   '';
 
   doInstallCheck = true;
@@ -47,6 +44,10 @@ buildGoModule rec {
     changelog = "https://github.com/Boeing/config-file-validator/releases/tag/v${version}";
     license = lib.licenses.asl20;
     mainProgram = "cfv";
-    platforms = lib.platforms.unix;
+    platforms = [
+      "aarch64-darwin"
+      "aarch64-linux"
+      "x86_64-linux"
+    ];
   };
 }

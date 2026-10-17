@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-repo_dir=$(cd "$script_dir/../.." && pwd)
-cd "$script_dir"
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
-current_version=$(awk -F '"' '/^  version = / { print $2; exit }' package.nix)
-api_payload=$(curl -fsSL https://api.github.com/repos/Boeing/config-file-validator/releases/latest || true)
+repo="Boeing/config-file-validator"
+hashes_file="hashes.json"
+
+current_version=$(jq -r '.version' "$hashes_file")
+api_payload=$(curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" || true)
 latest_version=$(printf '%s' "$api_payload" | jq -r .tag_name 2>/dev/null || true)
 if [ -z "$latest_version" ] || [ "$latest_version" = "null" ]; then
-  latest_version=$(git ls-remote --tags --refs https://github.com/Boeing/config-file-validator.git |
+  latest_version=$(git ls-remote --tags --refs "https://github.com/${repo}.git" |
     awk -F/ '{print $NF}' |
     sed 's/^v//' |
     grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
@@ -29,41 +30,43 @@ fi
 
 echo "Updating config-file-validator from $current_version to $latest_version"
 
-source_nix_hash=$(nix-prefetch-url --type sha256 --unpack "https://github.com/Boeing/config-file-validator/archive/refs/tags/v${latest_version}.tar.gz")
-source_hash=$(nix hash convert --hash-algo sha256 --to sri "$source_nix_hash")
+fetch_hash() {
+  local platform=$1
+  local url="https://github.com/${repo}/releases/download/v${latest_version}/cfv-${latest_version}-${platform}.tar.gz"
 
-tmp_dir=$(mktemp -d)
-cp package.nix "$tmp_dir/package.nix"
-updated=false
+  local raw
+  raw=$(nix-prefetch-url --type sha256 "$url")
+  nix hash convert --hash-algo sha256 --to sri "$raw"
+}
+
+darwin_arm64_hash=$(fetch_hash "darwin-arm64")
+linux_arm64_hash=$(fetch_hash "linux-arm64")
+linux_amd64_hash=$(fetch_hash "linux-amd64")
+
+tmp_file=$(mktemp "${PWD}/hashes.json.tmp.XXXXXX")
 cleanup_tmp() {
-  if [ "$updated" != true ]; then
-    cp "$tmp_dir/package.nix" package.nix
+  if [ -n "${tmp_file:-}" ] && [ -e "$tmp_file" ]; then
+    trash "$tmp_file" || true
   fi
-  trash "$tmp_dir" || true
 }
 trap cleanup_tmp EXIT
 
-awk -v version="$latest_version" -v source_hash="$source_hash" '
-  /^  version = / { sub(/^  version = "[^"]+";/, "  version = \"" version "\";") }
-  /^    hash = / { sub(/^    hash = "[^"]+";/, "    hash = \"" source_hash "\";") }
-  /^  vendorHash = / { sub(/^  vendorHash = "[^"]+";/, "  vendorHash = \"sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\";") }
-  { print }
-' package.nix > "$tmp_dir/package.nix.new"
-mv "$tmp_dir/package.nix.new" package.nix
+jq -n \
+  --arg version "$latest_version" \
+  --arg darwin_arm64 "$darwin_arm64_hash" \
+  --arg linux_arm64 "$linux_arm64_hash" \
+  --arg linux_amd64 "$linux_amd64_hash" \
+  '{
+    version: $version,
+    hashes: {
+      "darwin-arm64": $darwin_arm64,
+      "linux-arm64": $linux_arm64,
+      "linux-amd64": $linux_amd64
+    }
+  }' \
+  > "$tmp_file"
+chmod 644 "$tmp_file"
 
-nix build "$repo_dir#config-file-validator" --no-link > "$tmp_dir/build.log" 2>&1 || true
-vendor_hash=$(awk '/got:/ { print $2; exit }' "$tmp_dir/build.log")
-if [ -z "$vendor_hash" ]; then
-  echo "could not parse vendorHash for config-file-validator $latest_version" >&2
-  cat "$tmp_dir/build.log" >&2
-  exit 1
-fi
+mv "$tmp_file" "$hashes_file"
 
-awk -v vendor_hash="$vendor_hash" '
-  /^  vendorHash = / { sub(/^  vendorHash = "[^"]+";/, "  vendorHash = \"" vendor_hash "\";") }
-  { print }
-' package.nix > "$tmp_dir/package.nix.new"
-mv "$tmp_dir/package.nix.new" package.nix
-updated=true
-
-echo "updated config-file-validator to $latest_version"
+echo "updated config-file-validator to ${latest_version}"
