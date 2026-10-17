@@ -1,40 +1,14 @@
 # nixpkgs
 
-Personal Nix package collection for small tools.
+Personal collection of tools packaged for Nix, primarily used through devenv and Home Manager.
 
 ## Packages
-
-Each `packages/<name>/package.nix` file becomes:
-
-- `packages.${system}.<name>`
-- `pkgs.<name>` when you apply `overlays.default`
-
-Current packages:
 
 - `absurdctl`
 - `auth0-deploy-cli` (`a0deploy`)
 - `config-file-validator` (`cfv`)
 - `effect-tsgo`
-- `lat-md`
+- `lat-md` (`lat`)
 - `neon`
 - `plannotator`
 - `resend-cli` (`resend`)
-
-## Use from another flake
-
-```nix
-inputs.otahontas-nixpkgs.url = "github:otahontas/nixpkgs";
-
-# Packages
-otahontas-nixpkgs.packages.${system}.absurdctl
-otahontas-nixpkgs.packages.${system}.auth0-deploy-cli
-otahontas-nixpkgs.packages.${system}.config-file-validator
-otahontas-nixpkgs.packages.${system}.effect-tsgo
-otahontas-nixpkgs.packages.${system}.lat-md
-otahontas-nixpkgs.packages.${system}.neon
-otahontas-nixpkgs.packages.${system}.plannotator
-otahontas-nixpkgs.packages.${system}.resend-cli
-
-# Overlay
-nixpkgs.overlays = [ otahontas-nixpkgs.overlays.default ];
-```
