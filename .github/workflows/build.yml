@@ -32,10 +32,14 @@ jobs:
   build:
     needs: discover
     if: needs.discover.outputs.packages != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-15
         package: ${{ fromJson(needs.discover.outputs.packages) }}
     steps:
       - uses: actions/checkout@v6

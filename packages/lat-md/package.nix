@@ -43,6 +43,12 @@ buildNpmPackage {
     cp ${./package-lock.json} package-lock.json
   '';
 
+  doInstallCheck = true;
+  installCheckPhase = ''
+    test -x "$out/bin/lat"
+    "$out/bin/lat" --version | grep -F "${data.version}"
+  '';
+
   meta = with lib; {
     description = "Knowledge graph for codebases, written in markdown";
     homepage = "https://github.com/1st1/lat.md";

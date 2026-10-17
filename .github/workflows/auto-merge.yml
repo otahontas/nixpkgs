@@ -14,7 +14,7 @@ jobs:
       pull-requests: write
     concurrency:
       group: 'auto-merge:${{ github.event.workflow_run.head_branch }}'
-      cancel-in-progress: true
+      cancel-in-progress: false
     steps:
       - name: Merge update
         env:
@@ -46,4 +46,14 @@ jobs:
             exit 0
           fi
 
-          gh pr merge "$PR" --repo "$REPO" --merge --match-head-commit "$HEAD_SHA"
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge "$PR" --repo "$REPO" --merge --match-head-commit "$HEAD_SHA"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 5 ]; then
+              sleep "$((attempt * 2))"
+            fi
+          done
+
+          echo "Could not merge PR #$PR after 5 attempts" >&2
+          exit 1

@@ -13,7 +13,7 @@ Current packages:
 
 - `absurdctl`
 - `auth0-deploy-cli` (`a0deploy`)
-- `config-file-validator`
+- `config-file-validator` (`cfv`)
 - `effect-tsgo`
 - `lat-md`
 - `neon`

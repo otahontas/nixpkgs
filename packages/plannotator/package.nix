@@ -1,6 +1,8 @@
 {
   lib,
+  autoPatchelfHook,
   fetchurl,
+  glibc,
   stdenvNoCC,
 }:
 
@@ -24,9 +26,19 @@ stdenvNoCC.mkDerivation {
   };
 
   dontUnpack = true;
+  dontStrip = true;
+
+  nativeBuildInputs = lib.optionals stdenvNoCC.hostPlatform.isLinux [ autoPatchelfHook ];
+  buildInputs = lib.optionals stdenvNoCC.hostPlatform.isLinux [ glibc ];
 
   installPhase = ''
     install -Dm755 "$src" "$out/bin/plannotator"
+  '';
+
+  doInstallCheck = true;
+  installCheckPhase = ''
+    test -x "$out/bin/plannotator"
+    "$out/bin/plannotator" --version | grep -F "${version}"
   '';
 
   meta = with lib; {

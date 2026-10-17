@@ -7,32 +7,38 @@
 
 buildGoModule rec {
   pname = "config-file-validator";
-  version = "2.3.0";
+  version = "3.0.0";
 
   src = fetchFromGitHub {
     owner = "Boeing";
     repo = "config-file-validator";
     rev = "v${version}";
-    hash = "sha256-PIhT8JXs6hoU/kI+ZbZ2kFSRD1g64gqZmO2cv8Bpf9M=";
+    hash = "sha256-v/6KbReW2qEd6Dkno7VCyegOBpCAYvC5GWuBMvZe12w=";
   };
 
-  vendorHash = "sha256-7bt4F8sk2936NWK5LVoZDMhg0y3jt09kb/eqJyH9ges=";
+  vendorHash = "sha256-uLS28SwapMqHmuWcEzUAtJGlOr4BvA5LQnn/L81SWus=";
 
-  subPackages = [ "cmd/validator" ];
+  subPackages = [ "cmd/cfv" ];
 
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/Boeing/config-file-validator/v2.version=v${version}"
+    "-X github.com/Boeing/config-file-validator/v3.version=v${version}"
   ];
 
   nativeCheckInputs = [ git ];
 
   postPatch = ''
-    substituteInPlace cmd/validator/testdata/gitignore.txtar \
+    substituteInPlace cmd/cfv/testdata/gitignore.txtar \
       --replace-fail "! stdout 'build'" "! stdout 'build.output.json'"
-    substituteInPlace cmd/validator/testdata/ignore_file.txtar \
+    substituteInPlace cmd/cfv/testdata/ignore_file.txtar \
       --replace-fail "! stdout 'build'" "! stdout 'build.output.json'"
+  '';
+
+  doInstallCheck = true;
+  installCheckPhase = ''
+    test -x "$out/bin/cfv"
+    "$out/bin/cfv" --version | grep -F "${version}"
   '';
 
   meta = {
@@ -40,7 +46,7 @@ buildGoModule rec {
     homepage = "https://github.com/Boeing/config-file-validator";
     changelog = "https://github.com/Boeing/config-file-validator/releases/tag/v${version}";
     license = lib.licenses.asl20;
-    mainProgram = "validator";
+    mainProgram = "cfv";
     platforms = lib.platforms.unix;
   };
 }
