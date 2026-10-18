@@ -17,6 +17,8 @@ buildNpmPackage {
     hash = data.sourceHash;
   };
 
+  patches = [ ./patches/ui-writable-assets.patch ];
+
   inherit nodejs;
   npmDepsHash = data.npmDepsHash;
   npmFlags = [ "--ignore-scripts" ];

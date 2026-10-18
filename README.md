@@ -24,5 +24,11 @@ Personal collection of tools packaged for Nix, primarily used through devenv and
 - [`pi-sync-file-types.patch`](packages/lat-md-pi-devenv/patches/pi-sync-file-types.patch)
   includes Nix, shell, Fish, and Lua files in the documentation-sync reminder.
 
-The skill and CLI remain unchanged. Patches are applied without fuzzy matching;
-review them against the upstream template when upgrading Lat.
+These integration patches leave the skill and CLI unchanged. They are applied
+without fuzzy matching; review them against the upstream template when upgrading Lat.
+
+The CLI package separately applies
+[`ui-writable-assets.patch`](packages/lat-md/patches/ui-writable-assets.patch)
+to make copied UI assets writable before building a published site. Nix Store
+permissions otherwise survive the copy and prevent asset rewrites and cleanup.
+Only output copies are changed; the package's source assets remain read-only.

@@ -1,0 +1,35 @@
+--- a/dist/src/view/static-build.js
++++ b/dist/src/view/static-build.js
+@@ -1,6 +1,6 @@
+ import { createPublicationPolicy } from './publication.js';
+ import { createHash } from 'node:crypto';
+-import { cp, lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile, } from 'node:fs/promises';
++import { chmod, cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile, } from 'node:fs/promises';
+ import { dirname, join, parse, relative, resolve, sep } from 'node:path';
+ import { fileURLToPath } from 'node:url';
+ import { isDocumentPath } from '@lat.md/core/document-formats';
+@@ -13,6 +13,16 @@
+ const defaultClientDir = fileURLToPath(new URL('./client/', import.meta.url));
+ const VIEW_BUILD_MOVE_MAX_RETRIES = 10;
+ const VIEW_BUILD_MOVE_RETRY_DELAY_MS = 150;
++async function makeCopiedAssetsWritable(path) {
++    const stat = await lstat(path);
++    if (stat.isSymbolicLink()) return;
++    await chmod(path, stat.mode | 0o200);
++    if (stat.isDirectory()) {
++        for (const name of await readdir(path)) {
++            await makeCopiedAssetsWritable(join(path, name));
++        }
++    }
++}
+ function isInside(parent, child) {
+     const rel = relative(parent, child);
+     return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`));
+@@ -501,6 +511,7 @@
+         const payloadDir = staticViewPayloadDir(stagingDir, basePath);
+         await mkdir(payloadDir, { recursive: true });
+         await cp(clientDir, payloadDir, { recursive: true });
++        await makeCopiedAssetsWritable(payloadDir);
+         const index = { ...store.getIndex(), git: null, logoText };
+         validateDocumentRoutes(index.files);
+         const shell = clientShell(clientHtml, basePath, index.entry, options.searchApi);
