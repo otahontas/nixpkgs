@@ -1,0 +1,11 @@
+--- a/extension.ts
++++ b/extension.ts
+@@ -315,7 +315,7 @@
+         const changed = added + removed;
+         if (file.startsWith("lat.md/")) {
+           latMdLines += changed;
+-        } else if (/\.(ts|tsx|js|jsx|py|rs|go|c|h)$/.test(file)) {
++        } else if (/\.(ts|tsx|js|jsx|py|rs|go|c|h|nix|sh|bash|fish|lua)$/.test(file)) {
+           codeLines += changed;
+         }
+       }

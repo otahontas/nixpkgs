@@ -1,5 +1,6 @@
 {
   callPackage,
+  patch,
   runCommand,
 }:
 
@@ -9,6 +10,7 @@ in
 runCommand "lat-md-pi-devenv-${lat.version}"
   {
     inherit (lat) version;
+    nativeBuildInputs = [ patch ];
     meta = {
       description = "Upstream Lat CLI and Pi coding agent integration for devenv";
       inherit (lat.meta) homepage license platforms;
@@ -22,6 +24,10 @@ runCommand "lat-md-pi-devenv-${lat.version}"
     ln -s "$templates/skill" "$out/skill"
     substitute "$templates/pi-extension.ts" "$out/extension.ts" \
       --replace-fail '__LAT_INVOCATION__' '{"command":"${lat}/bin/lat","args":[]}'
+    patch --directory="$out" --strip=1 --fuzz=0 \
+      --input=${./patches/pi-capture-stderr.patch}
+    patch --directory="$out" --strip=1 --fuzz=0 \
+      --input=${./patches/pi-sync-file-types.patch}
     for file in extension.ts skill/SKILL.md; do
       test -s "$out/$file"
     done

@@ -1,0 +1,10 @@
+--- a/extension.ts
++++ b/extension.ts
+@@ -37,6 +37,7 @@
+   return execFileSync(LAT.command, [...LAT.args, ...args], {
+     cwd: cwd ?? process.cwd(),
+     encoding: "utf-8",
++    stdio: "pipe",
+     timeout: 30_000,
+   });
+ }
