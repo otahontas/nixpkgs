@@ -8,6 +8,8 @@ Personal collection of tools packaged for Nix, primarily used through devenv and
 - `auth0-deploy-cli` (`a0deploy`)
 - `config-file-validator` (`cfv`)
 - `effect-tsgo`
+- `impeccable` (native engine)
+- `impeccable-pi-devenv` ([project-local Pi setup](packages/impeccable-pi-devenv/README.md))
 - `lat-md` (`lat`)
 - `lat-md-pi-devenv`
 - `neon`
