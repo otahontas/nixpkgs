@@ -4,6 +4,12 @@ let
   integration = inputs.otahontas-nixpkgs.packages.${pkgs.stdenv.hostPlatform.system}.lat-md-pi-devenv;
 in
 {
+  git-hooks.hooks.lat-check = {
+    entry = "${integration}/bin/lat check";
+    pass_filenames = false;
+    always_run = true;
+  };
+
   scripts.lat.exec = ''
     exec "$DEVENV_ROOT/.devenv/lat-md/bin/lat" "$@"
   '';
